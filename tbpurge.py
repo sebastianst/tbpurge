@@ -1,4 +1,20 @@
 #!/usr/bin/env python
+#
+# Purge Titanium Backup directory, only keeping newest backup(s) for each app
+# Copyright © 2019 Sebastian Stammler
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
 from glob import glob, iglob
@@ -15,11 +31,11 @@ def main():
 
 def parse_args():
     parser = argparse.ArgumentParser(description=\
-            "Purge Titanium Backup directory to only keep newest backup(s) for each app")
+            "Purge Titanium Backup directory, only keeping newest backup(s) for each app")
     parser.add_argument("path", nargs="?", default=".",
-            help="Path to TB directory. Defaults to current directory.")
+            help="path to TB directory (default: current directory)")
     parser.add_argument("-k", "--keep", type=int, default=1,
-            help="Number of newest backups to keep per app. Default: 1.")
+            help="number of newest backups to keep per app (default: 1)")
 
     args = parser.parse_args()
 
