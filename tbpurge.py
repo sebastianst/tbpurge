@@ -49,18 +49,18 @@ def parse_args():
 def purge_tbdir(tbpath: str, keep: int):
     groups = {}
     # collect directory content
-    for propfile in iglob(tbpath + '/*.properties'):
-        files = [propfile]
+    print("Parsing properties files...")
+    for i, propfile in enumerate(iglob(tbpath + '/*.properties')):
+        print(f'{i}\t{basename(propfile)}   ', end='\r')
 
         base = splitext(propfile)[0]
-        datafile, ext = find_datafile_ext(base)
-        files.append(datafile)
+        files = glob(f'{base}.*')
 
         name, date = parse_name_date(base)
         md5 = parse_apk_md5(propfile)
-        apkfile = f"{tbpath}/{name}-{md5}.apk{ext}"
-        assert isfile(apkfile), f"Expected apk file {apkfile} doesn't exist"
-        files.append(apkfile)
+        if md5:
+            # If there's an apk, add it to the files list
+            files.extend(iglob(f"{tbpath}/{name}-{md5}.apk.*"))
 
         groups.setdefault(name, []).append({'files': files, 'date': date})
 
@@ -74,14 +74,8 @@ def purge_tbdir(tbpath: str, keep: int):
             delete_group_files(group)
         print()
 
-def find_datafile_ext(base: str):
-    datafile = glob(f'{base}.tar.*')
-    assert len(datafile) == 1,\
-            f"Expected exactly one data archive, but found: {datafile}"
-    return datafile[0], splitext(datafile[0])[1]
-
 def parse_name_date(base: str):
-    m = re.match(r'([a-z.]+)-(20\d{6}-\d{6})', basename(base))
+    m = re.match(r'([\w.]+)-(20\d{6}-\d{6})', basename(base))
     assert len(m.groups()) == 2, "Couldn't parse app name and date"
     name, date = m.groups()
     date = datetime.strptime(date, '%Y%m%d-%H%M%S')
@@ -92,7 +86,8 @@ def parse_apk_md5(propfile: str):
         for line in f:
             if line.startswith("app_apk_md5"):
                 return line.split('=')[1].strip()
-    raise Exception(f"Couldn't find md5 hash in {propfile}")
+    # Didn't find any md5, must be a misc data backup
+    return None
 
 def delete_group_files(group):
     print("> deleting", group['date'].strftime(DATEF))
