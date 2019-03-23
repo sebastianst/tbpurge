@@ -27,7 +27,7 @@ DATEF = "%Y-%m-%d %H:%M:%S"
 
 def main():
     args = parse_args()
-    purge_tbdir(args.path, args.keep)
+    purge_tbdir(args.path, args.keep, args.dryrun)
 
 def parse_args():
     parser = argparse.ArgumentParser(description=\
@@ -36,6 +36,9 @@ def parse_args():
             help="path to TB directory (default: current directory)")
     parser.add_argument("-k", "--keep", type=int, default=1,
             help="number of newest backups to keep per app (default: 1)")
+    parser.add_argument("-d", "--dryrun", action='store_true',
+            help="dryrun - only show what would be deleted")
+
 
     args = parser.parse_args()
 
@@ -46,7 +49,7 @@ def parse_args():
     return args
 
 
-def purge_tbdir(tbpath: str, keep: int):
+def purge_tbdir(tbpath: str, keep: int, dryrun: bool):
     groups = {}
     # collect directory content
     print("Parsing properties files...")
@@ -58,20 +61,24 @@ def purge_tbdir(tbpath: str, keep: int):
 
         name, date = parse_name_date(base)
         md5 = parse_apk_md5(propfile)
-        if md5:
-            # If there's an apk, add it to the files list
-            files.extend(iglob(f"{tbpath}/{name}-{md5}.apk.*"))
+        apkfile = glob(f"{tbpath}/{name}-{md5}.apk.*") if md5 else None
+        # If there's an apk, add it to the files list
+        if apkfile:
+            apkfile = apkfile[0]
+            files.append(apkfile)
+        else:
+            apkfile = None
 
-        groups.setdefault(name, []).append({'files': files, 'date': date})
+        groups.setdefault(name, []).append(\
+                {'files': set(files), 'date': date, 'apk': apkfile})
 
     # delete all but latest files per app
     for name, appgroups in groups.items():
         print(name)
         appgroups.sort(key=lambda x: x['date'], reverse=True)
-        for group in appgroups[0:keep]:
-            print("> keeping", group['date'].strftime(DATEF))
+        keep_newest_groups(appgroups, keep)
         for group in appgroups[keep:]:
-            delete_group_files(group)
+            delete_group_files(group, dryrun)
         print()
 
 def parse_name_date(base: str):
@@ -89,11 +96,31 @@ def parse_apk_md5(propfile: str):
     # Didn't find any md5, must be a misc data backup
     return None
 
-def delete_group_files(group):
+def keep_newest_groups(appgroups, keep):
+    """Removes apks of groups that should be kept from groups that will be
+    deleted. This can happen if APKs didn't get updated."""
+    for group in appgroups[0:keep]:
+        print("> keeping", group['date'].strftime(DATEF))
+        # remove apk from other groups so we don't accidentially delete a non-updated app
+        apkfile = group['apk']
+        if apkfile:
+            for othergroup in appgroups[keep:]:
+                othergroup['files'].discard(apkfile)
+
+def delete_group_files(group, dryrun):
     print("> deleting", group['date'].strftime(DATEF))
-    for file in group['files']:
-        print('>> rm', file)
-        os.remove(file)
+    files, apkfile = group['files'], group['apk']
+    for file in files:
+        if isfile(file):
+            print('>> rm', file)
+            if not dryrun:
+                os.remove(file)
+        else:
+            # apk already got deleted by an earlier group
+            print('>> --', file)
+    # apk is part of another group that is kept
+    if apkfile and apkfile not in files:
+        print('>> ++', apkfile)
 
 
 if __name__ == '__main__':
