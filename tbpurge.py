@@ -1,7 +1,7 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Purge Titanium Backup directory, only keeping newest backup(s) for each app
-# Copyright © 2019 Sebastian Stammler
+# Copyright (C) 2019 Sebastian Stammler
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
